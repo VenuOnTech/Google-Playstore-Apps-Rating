@@ -7,22 +7,22 @@ from scipy import stats
 from wordcloud import WordCloud
 import warnings
 
-# --- Page Configuration ---
+# Page Configuration
 st.set_page_config(
     page_title="Google Play Store Analysis",
     page_icon="📊",
     layout="wide"
 )
 
-# --- Data Loading and Cleaning (Cached) ---
+# Data Loading and Cleaning
 
 # Helper function for cleaning 'Size'
 def clean_size(size):
     if isinstance(size, str):
         if 'M' in size:
-            return float(size.replace('M', '')) * 1_000_000  # Convert to bytes
+            return float(size.replace('M', '')) * 1_000_000
         elif 'k' in size:
-            return float(size.replace('k', '')) * 1_000      # Convert to bytes
+            return float(size.replace('k', '')) * 1_000
         elif 'Varies with device' in size:
             return np.nan
         else:
@@ -30,7 +30,7 @@ def clean_size(size):
                 return float(size)
             except:
                 return np.nan
-    return np.nan  # Handle non-string inputs if any
+    return np.nan
 
 @st.cache_data
 def load_and_clean_data():
@@ -38,15 +38,19 @@ def load_and_clean_data():
     Loads, cleans, and merges the datasets.
     This function is cached to improve app performance.
     """
+    # UPDATED FILE PATHS
+    apps_file_path = "datasets/googleplaystore.csv"
+    reviews_file_path = "datasets/googleplaystore_user_reviews.csv"
+    
     try:
-        df_apps = pd.read_csv("googleplaystore.csv")
-        df_reviews = pd.read_csv("googleplaystore_user_reviews.csv")
+        df_apps = pd.read_csv(apps_file_path)
+        df_reviews = pd.read_csv(reviews_file_path)
     except FileNotFoundError as e:
-        st.error(f"Error: {e}")
-        st.error("Please make sure 'googleplaystore.csv' and 'googleplaystore_user_reviews.csv' are in the same directory as the app.")
-        return None, None, None
+        st.error(f"Error loading data: {e}")
+        st.error(f"Please make sure '{apps_file_path}' and '{reviews_file_path}' exist.")
+        return None, None, None, None
 
-    # --- Clean Apps Data (df_apps) ---
+    # Clean Apps Data
     
     # 2.1. Handle bad row and clean 'Reviews'
     df_apps['Reviews'] = pd.to_numeric(df_apps['Reviews'], errors='coerce')
@@ -79,7 +83,7 @@ def load_and_clean_data():
     df_apps['Type'] = df_apps['Type'].fillna('Free')
     df_apps['Content Rating'] = df_apps['Content Rating'].fillna('Everyone')
     
-    # 2.7. (NEW - Suggestion 3) Feature Engineering: 'Last Updated'
+    # 2.7. Feature Engineering
     df_apps['Last_Updated_DT'] = pd.to_datetime(df_apps['Last Updated'])
     df_apps['Days_Since_Update'] = (pd.to_datetime('today') - df_apps['Last_Updated_DT']).dt.days
 
@@ -88,7 +92,7 @@ def load_and_clean_data():
     df_apps = df_apps.drop_duplicates(subset=['App'], keep='first')
     df_apps = df_apps.reset_index(drop=True)
     
-    # --- Clean and Merge Reviews Data (df_reviews) ---
+    # Clean and Merge Reviews Data
     df_reviews_cleaned = df_reviews.dropna()
     
     # 3.A. Merge for Sentiment Polarity
@@ -104,7 +108,7 @@ def load_and_clean_data():
 # --- Load Data ---
 df_apps, df_merged, df_merged_with_text, df_apps_pre_clean = load_and_clean_data()
 
-# --- Main App ---
+# Main App
 if df_apps is not None:
     st.title("📊 Google Play Store App Analysis")
     st.markdown("This interactive dashboard presents a comprehensive analysis of the Google Play Store dataset. We explore app categories, user ratings, pricing strategies, user sentiment, and more.")
@@ -113,7 +117,7 @@ if df_apps is not None:
     sns.set_style('whitegrid')
     warnings.filterwarnings("ignore") # Suppress warnings in Streamlit output
     
-    # --- Suggestion 1: Missing Data Analysis ---
+    # Missing Data Analysis
     st.header("1. Initial Data Quality Check: Missing Data")
     st.markdown("Before cleaning, we first analyze the missing data. The heatmap shows that `Rating` is the primary column with a significant number of missing values.")
     
@@ -127,7 +131,7 @@ if df_apps is not None:
     st.dataframe(missing_ratings_by_category)
     st.markdown("_This suggests that apps in categories like 'FAMILY' and 'MEDICAL' are less likely to have ratings upon initial upload. Our cleaning process fills these with the dataset's median rating._")
 
-    # --- Objective 1: Category Analysis ---
+    # Objective 1: Category Analysis
     st.header("2. Objective 1: App Distribution and Quality by Category")
     st.markdown("Which app categories dominate the Play Store, and which are rated highest by users?")
     
@@ -147,7 +151,7 @@ if df_apps is not None:
     ax_cat_rating.set_xlim(3.5, 5.0)
     st.pyplot(fig_cat_rating)
 
-    # --- Objective 2 (Advanced): Pair Plot ---
+    # Objective 2 (Advanced): Pair Plot
     st.header("3. Objective 2: Correlations Between Key Metrics")
     st.markdown("How do key metrics relate to each other? We use a pair plot with **log-transformed** `Reviews` and `Installs` to handle the highly skewed data, revealing clearer relationships.")
     
@@ -161,7 +165,7 @@ if df_apps is not None:
     g_pair.fig.suptitle('Pair Plot of Key Metrics (with Log-Transformed Reviews/Installs)', y=1.02, fontsize=16)
     st.pyplot(g_pair.fig)
 
-    # --- Objective 3: Free vs. Paid ---
+    # Objective 3: Free vs. Paid
     st.header("4. Objective 3: Free vs. Paid App Performance")
     st.markdown("Does paying for an app guarantee a higher rating? A visual inspection with a boxplot shows paid apps have a slightly higher median rating.")
     
@@ -189,7 +193,7 @@ p-value = {p_value:.4f}
     else:
         st.info("Result: The difference in ratings is NOT statistically significant (p >= 0.05).")
 
-    # --- Objective 4: Sentiment vs. Rating ---
+    # Objective 4: Sentiment vs. Rating
     st.header("5. Objective 4: User Sentiment vs. Overall Rating")
     st.markdown("Do users' written reviews (sentiment polarity) match the app's numerical star rating? We merge the two datasets to find out.")
     
@@ -200,7 +204,7 @@ p-value = {p_value:.4f}
     st.pyplot(g_joint.fig)
     st.markdown("_As expected, there is a strong positive correlation: apps with higher average sentiment in their reviews also have higher overall star ratings._")
 
-    # --- Objective 5: Content Rating ---
+    # Objective 5: Content Rating
     st.header("6. Objective 5: Impact of Content Rating")
     st.markdown("How are apps distributed by content rating, and does this affect their quality?")
     
@@ -218,7 +222,7 @@ p-value = {p_value:.4f}
     ax_content_rating.set_ylabel('Rating', fontsize=12)
     st.pyplot(fig_content_rating)
 
-    # --- Objective 6: Date Analysis ---
+    # Objective 6: Date Analysis
     st.header("7. Objective 6: App Freshness (Feature Engineering)")
     st.markdown("Does updating an app frequently lead to higher ratings? We engineered a new feature, `Days_Since_Update`, to test this hypothesis.")
     
@@ -233,7 +237,7 @@ p-value = {p_value:.4f}
     st.markdown(f"**Correlation: {correlation:.3f}**")
     st.markdown("_There is a slight negative correlation, suggesting that apps updated more recently (fewer days since update) tend to have slightly higher ratings._")
 
-    # --- Objective 7: NLP Word Clouds ---
+    # Objective 7: NLP Word Clouds
     st.header("8. Objective 7: NLP Analysis of User Reviews")
     st.markdown("What are users *saying* about the most popular apps? We generate Word Clouds from the review text of the top 3 most-reviewed apps.")
     
@@ -252,3 +256,4 @@ p-value = {p_value:.4f}
 
 else:
     st.error("Data could not be loaded. Please check the file paths and try again.")
+
